@@ -1,0 +1,49 @@
+P-HACKING CODE:
+  Fills in data table until results become significant
+  This interaction specifically does so for correlating female smokers and new cases of covid but can be changed out for other variables
+```{r}
+library(dplyr)
+
+add_Data <- function(data, cor1, cor2, rows_needed, curDate) {
+  data3 <- data[which(((data[c(cor1)] > 0) & (data[c(cor2)] > 0)) & (data$date != curDate)),]
+  set.seed(3)
+  toAppend <- sample_n(data3, rows_needed)
+  toAppend["date"] <- curDate
+  data <- rbind(data, toAppend)
+  return(data)
+}
+```
+  
+
+```{r}
+#read the Dataset sheet into "R". The dataset will be called "data".
+data <- read.csv("https://covid.ourworldindata.org/data/owid-covid-data.csv",
+                 na.strings = "",header=T)
+
+res <- NULL
+x <- "new_cases"
+y <- "female_smokers"
+data2 <- data
+for (i in 1:length(unique(data$date))){
+  data1 <- data2[which((data2$date==unique(data2$date)[i])),]
+  data1 <- data1 %>% select("iso_code","date",x, y)
+  my_sum = sum(rowSums(!is.na(data1[,3:4]))==2)
+  # if there are at least 8, add more dates to the set until it reaches 10 so that results
+  # a higher chance of being significant
+  if (my_sum>=8){ 
+    if(my_sum < 10){
+      rows_needed = 10 - my_sum 
+      data2 <- add_Data(data2, x, y, rows_needed, unique(data2$date)[i] )
+      data1 <- data2[which((data2$date==unique(data2$date)[i])),]
+      data1 <- data1 %>% select("iso_code","date",x, y)
+    }
+    res <- rbind(res, c(unique(data2$date)[i],
+                        cor.test(data1[,3],data1[,4])$estimate,
+                        cor.test(data1[,3],data1[,4])$p.value))
+  }
+}
+
+res[which((as.numeric(res[,2])>0)& (as.numeric(res[,3])<=0.05)),]
+```
+
+
